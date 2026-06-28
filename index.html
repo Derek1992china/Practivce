@@ -15,7 +15,7 @@
       <div class="stats"><div class="stat"><b id="streak">0</b><span>连续训练天数</span></div><div class="stat"><b id="mins">0</b><span>累计分钟</span></div></div>
       <section class="auth" aria-label="云端登录">
         <h3>云端同步</h3>
-        <small id="authStatus">未配置云端，当前为本机记录。</small>
+        <small id="authStatus">云端已配置，正在连接...</small>
         <div id="authForm">
           <input id="email" type="email" autocomplete="email" placeholder="邮箱">
           <input id="password" type="password" autocomplete="current-password" placeholder="密码">
@@ -43,11 +43,7 @@
       </div>
     </main>
   </div>
-  <script type="module">
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js";
-    import { getAuth, onAuthStateChanged, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js";
-    import { getFirestore, doc, getDoc, setDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
-
+  <script>
     const firebaseConfig = {
       apiKey: "AIzaSyCLzGN_WZIBcsOnqe0XvvGifq7aXAcxvRA",
       authDomain: "bakuai-3fc3f.firebaseapp.com",
@@ -61,6 +57,7 @@
     const K="absAppCloud";
     const fallback={p:"a",days:{},mins:0,w:30,r:15};
     let S=loadLocal(),p=S.p,i=0,run=0,timer,phase="work",total=S.w,left=S.w,user=null,auth=null,db=null,cloudReady=false,cloudLoading=false;
+    let createUserWithEmailAndPassword,signInWithEmailAndPassword,signOut,onAuthStateChanged,getDoc,setDoc,doc,serverTimestamp;
 
     const $=id=>document.getElementById(id);
     work.value=S.w;rest.value=S.r;
@@ -79,7 +76,7 @@
     function paint(){left=Math.max(0,left);$("left").textContent=left;mode.textContent=phase==="work"?"训练秒":"休息秒";ring.style.setProperty("--p",(360*(total-left)/Math.max(total,1))+"deg");ring.style.background=`conic-gradient(${phase==="work"?"#e94d2e":"#26a978"} var(--p),#edf0f3 0)`}
     function progress(){let now=new Date,wd=now.getDay()||7,ok=0;week.innerHTML="";for(let n=1;n<8;n++){let x=new Date(now);x.setDate(now.getDate()+n-wd);let v=S.days[d(x)],el=document.createElement("div");el.className="day "+(v?"ok":"");el.textContent="一二三四五六日"[n-1];week.appendChild(el);if(v)ok++}sum.textContent=ok+" / 7";mins.textContent=S.mins||0;let st=0,x=new Date;while(S.days[d(x)]){st++;x.setDate(x.getDate()-1)}streak.textContent=st}
     async function loadCloudState(currentUser){cloudLoading=true;try{let snap=await getDoc(doc(db,"users",currentUser.uid));if(snap.exists()&&snap.data().state){S={...fallback,...snap.data().state};p=S.p||"a";work.value=S.w||30;rest.value=S.r||15;left=total=+work.value;saveLocal();draw();setAuthStatus("已登录："+currentUser.email);cloudNote.textContent="云端同步已开启，换手机登录同一邮箱即可同步记录。"}else{await saveCloud();setAuthStatus("已登录："+currentUser.email);cloudNote.textContent="已为这个账号建立云端记录。"}}catch(e){setAuthStatus("读取云端失败，本机记录仍可使用。")}finally{cloudLoading=false}}
-    function initCloud(){if(!configured()){authForm.classList.add("hide");setAuthStatus("云端尚未配置，当前为本机记录。");cloudNote.textContent="需要填入 Firebase 配置后，邮箱登录和跨手机同步才会生效。";return}try{const app=initializeApp(firebaseConfig);auth=getAuth(app);db=getFirestore(app);cloudReady=true;setAuthStatus("可登录云端账号。");onAuthStateChanged(auth,async u=>{user=u;authForm.classList.toggle("hide",!!u);cloudTools.classList.toggle("hide",!u);if(u)await loadCloudState(u);else{setAuthStatus("未登录云端，当前为本机记录。");cloudNote.textContent="登录后，记录会保存到云端，换手机也能同步。"}})}catch(e){setAuthStatus("云端初始化失败，请检查 Firebase 配置。")}}
+    async function initCloud(){if(!configured()){authForm.classList.add("hide");setAuthStatus("云端尚未配置，当前为本机记录。");cloudNote.textContent="需要填入 Firebase 配置后，邮箱登录和跨手机同步才会生效。";return}setAuthStatus("云端已配置，正在连接...");try{const appMod=await import("https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js");const authMod=await import("https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js");const storeMod=await import("https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js");createUserWithEmailAndPassword=authMod.createUserWithEmailAndPassword;signInWithEmailAndPassword=authMod.signInWithEmailAndPassword;signOut=authMod.signOut;onAuthStateChanged=authMod.onAuthStateChanged;getDoc=storeMod.getDoc;setDoc=storeMod.setDoc;doc=storeMod.doc;serverTimestamp=storeMod.serverTimestamp;const app=appMod.initializeApp(firebaseConfig);auth=authMod.getAuth(app);db=storeMod.getFirestore(app);cloudReady=true;setAuthStatus("可登录云端账号。");onAuthStateChanged(auth,async u=>{user=u;authForm.classList.toggle("hide",!!u);cloudTools.classList.toggle("hide",!u);if(u)await loadCloudState(u);else{setAuthStatus("未登录云端，当前为本机记录。");cloudNote.textContent="登录后，记录会保存到云端，换手机也能同步。"}})}catch(e){setAuthStatus("云端连接失败，请检查网络后重试。");cloudNote.textContent="训练记录会先保存在本机，云端连接恢复后可登录同步。"}}
 
     document.querySelectorAll(".tabs button").forEach(b=>b.onclick=()=>{p=S.p=b.dataset.p;i=0;document.querySelectorAll(".tabs button").forEach(x=>x.classList.toggle("on",x===b));stop();left=total=+work.value;save();draw()});
     start.onclick=()=>{if(run)return stop();run=1;start.textContent="暂停";timer=setInterval(tick,1000)};
@@ -88,10 +85,10 @@
     rest.onchange=()=>{S.r=rest.value=Math.min(45,Math.max(5,+rest.value||15));save()};
     done.onclick=()=>{S.days[d()]=1;S.mins=(S.mins||0)+Math.round(P[p].length*work.value/60);save();tip.textContent="已记录今天训练，明天继续保持。";progress()};
     reset.onclick=()=>{if(confirm(user?"清空本机和云端训练记录吗？":"清空本机训练记录吗？")){S={...fallback};p=S.p;work.value=S.w;rest.value=S.r;left=total=S.w;save();draw()}};
-    loginBtn.onclick=async()=>{try{await signInWithEmailAndPassword(auth,email.value.trim(),password.value);password.value=""}catch(e){setAuthStatus("登录失败，请检查邮箱和密码。")}};
-    signupBtn.onclick=async()=>{try{await createUserWithEmailAndPassword(auth,email.value.trim(),password.value);password.value=""}catch(e){setAuthStatus("注册失败，密码至少 6 位，或邮箱已被使用。")}};
-    logoutBtn.onclick=()=>signOut(auth);
-    syncBtn.onclick=async()=>{await saveCloud();setAuthStatus("本机记录已同步到云端。")};
+    loginBtn.onclick=async()=>{if(!cloudReady)return setAuthStatus("云端仍在连接，请稍后再试。");try{await signInWithEmailAndPassword(auth,email.value.trim(),password.value);password.value=""}catch(e){setAuthStatus("登录失败，请检查邮箱和密码。")}};
+    signupBtn.onclick=async()=>{if(!cloudReady)return setAuthStatus("云端仍在连接，请稍后再试。");try{await createUserWithEmailAndPassword(auth,email.value.trim(),password.value);password.value=""}catch(e){setAuthStatus("注册失败，密码至少 6 位，或邮箱已被使用。")}};
+    logoutBtn.onclick=()=>cloudReady&&signOut(auth);
+    syncBtn.onclick=async()=>{if(!cloudReady)return setAuthStatus("云端仍在连接，请稍后再试。");await saveCloud();setAuthStatus("本机记录已同步到云端。")};
 
     draw();
     initCloud();
